@@ -4,9 +4,18 @@ s = open("ray_ssa.c").read()
 vars = re.findall(r"^\s*(?:double|int)\s+(\w+)\s*;", s, re.M)
 out = ["var " + n for n in vars]
 ops = {
-    "+": "add", "-": "sub", "*": "mul", "/": "div",
-    "<": "lt", ">": "gt", "<=": "le", ">=": "ge",
-    "==": "eq", "!=": "ne", "&&": "and", "||": "or"
+    "+": "add",
+    "-": "sub",
+    "*": "mul",
+    "/": "div",
+    "<": "lt",
+    ">": "gt",
+    "<=": "le",
+    ">=": "ge",
+    "==": "eq",
+    "!=": "ne",
+    "&&": "and",
+    "||": "or",
 }
 value = r"(?:\w+|-?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)"
 
@@ -37,7 +46,7 @@ for line in s.splitlines():
         continue
     if line.startswith("printf"):
         names = re.findall(r"\(int\)(\w+)", line)
-        out.append(("printhead" if len(names) == 2 else "print3") + " " + " ".join(names))
+        out.append(("print2" if len(names) == 2 else "print3") + " " + " ".join(names))
         continue
     if line == "return 0;":
         continue
@@ -47,7 +56,9 @@ for line in s.splitlines():
     a, b = assign.groups()
     one = re.fullmatch(r"(sqrt|fabs)\((\w+)\)", b)
     if one:
-        out.append(("sqrt" if one.group(1) == "sqrt" else "abs") + " " + a + " " + one.group(2))
+        out.append(
+            ("sqrt" if one.group(1) == "sqrt" else "abs") + " " + a + " " + one.group(2)
+        )
         continue
     cast = re.fullmatch(r"\(int\)(\w+)", b)
     if cast:
@@ -59,12 +70,19 @@ for line in s.splitlines():
     if re.fullmatch(r"-[A-Za-z]\w*", b):
         out.append("neg " + a + " " + b[1:])
         continue
-    two = re.fullmatch("(" + value + r")\s*(<=|>=|==|!=|&&|\|\||[+*/<>-])\s*(" + value + ")", b)
+    two = re.fullmatch(
+        "(" + value + r")\s*(<=|>=|==|!=|&&|\|\||[+*/<>-])\s*(" + value + ")", b
+    )
     if two:
         x, op, y = two.groups()
         out.append(ops[op] + " " + a + " " + x + " " + y)
         continue
-    out.append(("set " if re.fullmatch(value, b) and not b[0].isalpha() else "copy ") + a + " " + b)
+    out.append(
+        ("set " if re.fullmatch(value, b) and not b[0].isalpha() else "copy ")
+        + a
+        + " "
+        + b
+    )
 
 open("ray.dsl", "w").write("\n".join(out) + "\n")
 print(len(vars), "vars", len(out) - len(vars), "lines")

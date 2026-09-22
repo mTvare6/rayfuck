@@ -487,7 +487,7 @@ set mpixelz -1
 int moutw mwidth
 int mouth mheight
 text P3
-printhead moutw mouth
+print2 moutw mouth
 set my 0
 lt mcond my mheight
 while mcond
