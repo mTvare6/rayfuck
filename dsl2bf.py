@@ -20,6 +20,41 @@ def go(p):
     here = p
 
 
+def clear(p):
+    go(p)
+    out.append("[-]")
+
+
+def move(a, b):
+    go(a)
+    out.append("[-")
+    go(b)
+    out.append("+")
+    go(a)
+    out.append("]")
+
+
+def split(a, b, c):
+    go(a)
+    out.append("[-")
+    go(b)
+    out.append("+")
+    go(c)
+    out.append("+")
+    go(a)
+    out.append("]")
+
+
+def addcell(a, b, t, c):
+    clear(t)
+    clear(c)
+    split(b, t, c)
+    move(t, b)
+    split(a, t, c)
+    move(t, a)
+    go(c)
+
+
 def number(n):
     n = round(float(n) * 65536) & 0xFFFFFFFF
     return [(n >> i) & 255 for i in (0, 8, 16, 24)]
@@ -28,8 +63,7 @@ def number(n):
 def clear4(n):
     a = mem[n]["at"]
     for i in range(4):
-        go(a + i)
-        out.append("[-]")
+        clear(a + i)
 
 
 def set4(n, v):

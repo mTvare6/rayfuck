@@ -1,366 +1,617 @@
 #include <math.h>
 #include <stdio.h>
-#include <stdlib.h>
 
-#define LAMBERTIAN 0
-#define METAL 1
+// random
+double rdstate;
+double rdmore;
+double rdout;
 
-double random_x;
-double random_y;
-double random_z;
+// randomunit
+double randx;
+double randy;
+double randz;
 
-double hit_x;
-double hit_y;
-double hit_z;
-double hit_normal_x;
-double hit_normal_y;
-double hit_normal_z;
-double hit_t;
-int hit_material;
+// hit
+double hitx;
+double hity;
+double hitz;
+double hitnx;
+double hitny;
+double hitnz;
+double hitt;
+double hitmat;
 
-double random_double(void) {
-    return rand() / (RAND_MAX + 1.0);
+// hitsphere
+double hsfound;
+double hsox;
+double hsoy;
+double hsoz;
+double hsdx;
+double hsdy;
+double hsdz;
+double hscx;
+double hscy;
+double hscz;
+double hsr;
+double hsmat;
+double hstmin;
+double hstmax;
+
+// hitworld
+double hwfound;
+double hwox;
+double hwoy;
+double hwoz;
+double hwdx;
+double hwdy;
+double hwdz;
+
+// ray color
+double rcox;
+double rcoy;
+double rcoz;
+double rcdx;
+double rcdy;
+double rcdz;
+double rcdepth;
+double rcoutr;
+double rcoutg;
+double rcoutb;
+
+void randomvalue(void) {
+    rdstate = rdstate * 5;
+    rdstate = rdstate + 1;
+    rdmore = rdstate >= 256;
+    while (rdmore) {
+        rdstate = rdstate - 256;
+        rdmore = rdstate >= 256;
+    }
+    rdout = rdstate / 256;
 }
 
-void random_unit_vector(void) {
-    double x;
-    double y;
-    double z;
-    double length_squared;
+void randomunit(void) {
+    double rux;
+    double ruy;
+    double ruz;
+    double rut;
+    double rulensq;
+    double rulen;
+    double rugt;
+    double rule;
+    double ruok;
+    double runot;
 
-    while (1) {
-        x = 2.0 * random_double() - 1.0;
-        y = 2.0 * random_double() - 1.0;
-        z = 2.0 * random_double() - 1.0;
-        length_squared = x * x + y * y + z * z;
+    ruok = 0;
+    runot = !ruok;
+    while (runot) {
+        randomvalue();
+        rut = rdout * 2;
+        rux = rut - 1;
+        randomvalue();
+        rut = rdout * 2;
+        ruy = rut - 1;
+        randomvalue();
+        rut = rdout * 2;
+        ruz = rut - 1;
+        rut = rux * rux;
+        rulensq = rut;
+        rut = ruy * ruy;
+        rulensq = rulensq + rut;
+        rut = ruz * ruz;
+        rulensq = rulensq + rut;
+        rugt = rulensq > 0;
+        rule = rulensq <= 1;
+        ruok = rugt && rule;
+        runot = !ruok;
+    }
+    rulen = sqrt(rulensq);
+    randx = rux / rulen;
+    randy = ruy / rulen;
+    randz = ruz / rulen;
+}
 
-        if (length_squared > 1e-160 && length_squared <= 1.0) {
-            length_squared = sqrt(length_squared);
-            random_x = x / length_squared;
-            random_y = y / length_squared;
-            random_z = z / length_squared;
-            return;
+void hitsphere(void) {
+    double hsoffx;
+    double hsoffy;
+    double hsoffz;
+    double hsa;
+    double hsh;
+    double hsc;
+    double hsdisc;
+    double hsroot;
+    double hssqrt;
+    double hsoutx;
+    double hsouty;
+    double hsoutz;
+    double hstmp;
+    double hslow;
+    double hshigh;
+    double hsbad;
+    double hsfront;
+
+    hsoffx = hscx - hsox;
+    hsoffy = hscy - hsoy;
+    hsoffz = hscz - hsoz;
+    hstmp = hsdx * hsdx;
+    hsa = hstmp;
+    hstmp = hsdy * hsdy;
+    hsa = hsa + hstmp;
+    hstmp = hsdz * hsdz;
+    hsa = hsa + hstmp;
+    hstmp = hsdx * hsoffx;
+    hsh = hstmp;
+    hstmp = hsdy * hsoffy;
+    hsh = hsh + hstmp;
+    hstmp = hsdz * hsoffz;
+    hsh = hsh + hstmp;
+    hstmp = hsoffx * hsoffx;
+    hsc = hstmp;
+    hstmp = hsoffy * hsoffy;
+    hsc = hsc + hstmp;
+    hstmp = hsoffz * hsoffz;
+    hsc = hsc + hstmp;
+    hstmp = hsr * hsr;
+    hsc = hsc - hstmp;
+    hstmp = hsh * hsh;
+    hsdisc = hsa * hsc;
+    hsdisc = hstmp - hsdisc;
+    hsfound = hsdisc >= 0;
+    if (hsfound) {
+        hssqrt = sqrt(hsdisc);
+        hsroot = hsh - hssqrt;
+        hsroot = hsroot / hsa;
+        hslow = hsroot <= hstmin;
+        hshigh = hsroot >= hstmax;
+        hsbad = hslow || hshigh;
+        if (hsbad) {
+            hsroot = hsh + hssqrt;
+            hsroot = hsroot / hsa;
+            hslow = hsroot <= hstmin;
+            hshigh = hsroot >= hstmax;
+            hsbad = hslow || hshigh;
         }
-    }
-}
-
-int hit_sphere(
-    double origin_x,
-    double origin_y,
-    double origin_z,
-    double direction_x,
-    double direction_y,
-    double direction_z,
-    double center_x,
-    double center_y,
-    double center_z,
-    double radius,
-    int material,
-    double min_t,
-    double max_t
-) {
-    double offset_x = center_x - origin_x;
-    double offset_y = center_y - origin_y;
-    double offset_z = center_z - origin_z;
-    double a = direction_x * direction_x
-             + direction_y * direction_y
-             + direction_z * direction_z;
-    double h = direction_x * offset_x
-             + direction_y * offset_y
-             + direction_z * offset_z;
-    double c = offset_x * offset_x
-             + offset_y * offset_y
-             + offset_z * offset_z
-             - radius * radius;
-    double discriminant = h * h - a * c;
-    double root;
-    double outward_x;
-    double outward_y;
-    double outward_z;
-
-    if (discriminant < 0.0)
-        return 0;
-
-    root = (h - sqrt(discriminant)) / a;
-    if (root <= min_t || root >= max_t) {
-        root = (h + sqrt(discriminant)) / a;
-        if (root <= min_t || root >= max_t)
-            return 0;
-    }
-
-    hit_t = root;
-    hit_x = origin_x + root * direction_x;
-    hit_y = origin_y + root * direction_y;
-    hit_z = origin_z + root * direction_z;
-    hit_material = material;
-
-    outward_x = (hit_x - center_x) / radius;
-    outward_y = (hit_y - center_y) / radius;
-    outward_z = (hit_z - center_z) / radius;
-
-    if (direction_x * outward_x
-      + direction_y * outward_y
-      + direction_z * outward_z < 0.0) {
-        hit_normal_x = outward_x;
-        hit_normal_y = outward_y;
-        hit_normal_z = outward_z;
-    } else {
-        hit_normal_x = -outward_x;
-        hit_normal_y = -outward_y;
-        hit_normal_z = -outward_z;
-    }
-
-    return 1;
-}
-
-int hit_world(
-    double origin_x,
-    double origin_y,
-    double origin_z,
-    double direction_x,
-    double direction_y,
-    double direction_z
-) {
-    double closest = INFINITY;
-    int found = 0;
-
-    if (hit_sphere(origin_x, origin_y, origin_z,
-                   direction_x, direction_y, direction_z,
-                   0, -100.5, -1, 100, 0, 0.001, closest)) {
-        closest = hit_t;
-        found = 1;
-    }
-
-    if (hit_sphere(origin_x, origin_y, origin_z,
-                   direction_x, direction_y, direction_z,
-                   0, 0, -1.2, 0.5, 1, 0.001, closest)) {
-        closest = hit_t;
-        found = 1;
-    }
-
-    if (hit_sphere(origin_x, origin_y, origin_z,
-                   direction_x, direction_y, direction_z,
-                   -1, 0, -1, 0.5, 2, 0.001, closest)) {
-        closest = hit_t;
-        found = 1;
-    }
-
-    if (hit_sphere(origin_x, origin_y, origin_z,
-                   direction_x, direction_y, direction_z,
-                   1, 0, -1, 0.5, 3, 0.001, closest)) {
-        found = 1;
-    }
-
-    return found;
-}
-
-void ray_color(
-    double origin_x,
-    double origin_y,
-    double origin_z,
-    double direction_x,
-    double direction_y,
-    double direction_z,
-    int depth,
-    double *red,
-    double *green,
-    double *blue
-) {
-    double point_x;
-    double point_y;
-    double point_z;
-    double normal_x;
-    double normal_y;
-    double normal_z;
-    double scattered_x;
-    double scattered_y;
-    double scattered_z;
-    double attenuation_r;
-    double attenuation_g;
-    double attenuation_b;
-    double fuzz;
-    double reflected_x;
-    double reflected_y;
-    double reflected_z;
-    double reflected_length;
-    double projection;
-    double direction_length;
-    double blend;
-    double throughput_r = 1.0;
-    double throughput_g = 1.0;
-    double throughput_b = 1.0;
-    int material;
-    int material_type;
-    int path_length;
-
-    for (path_length = 0; path_length < depth; path_length++) {
-        if (!hit_world(origin_x, origin_y, origin_z,
-                       direction_x, direction_y, direction_z)) {
-            direction_length = sqrt(direction_x * direction_x
-                                  + direction_y * direction_y
-                                  + direction_z * direction_z);
-            blend = 0.5 * (direction_y / direction_length + 1.0);
-            *red = throughput_r * (1.0 - 0.5 * blend);
-            *green = throughput_g * (1.0 - 0.3 * blend);
-            *blue = throughput_b;
-            return;
-        }
-
-        point_x = hit_x;
-        point_y = hit_y;
-        point_z = hit_z;
-        normal_x = hit_normal_x;
-        normal_y = hit_normal_y;
-        normal_z = hit_normal_z;
-        material = hit_material;
-
-        if (material == 0) {
-            material_type = LAMBERTIAN;
-            attenuation_r = 0.8;
-            attenuation_g = 0.8;
-            attenuation_b = 0.0;
-            fuzz = 0.0;
-        } else if (material == 1) {
-            material_type = LAMBERTIAN;
-            attenuation_r = 0.1;
-            attenuation_g = 0.2;
-            attenuation_b = 0.5;
-            fuzz = 0.0;
-        } else if (material == 2) {
-            material_type = METAL;
-            attenuation_r = 0.8;
-            attenuation_g = 0.8;
-            attenuation_b = 0.8;
-            fuzz = 0.3;
-        } else {
-            material_type = METAL;
-            attenuation_r = 0.8;
-            attenuation_g = 0.6;
-            attenuation_b = 0.2;
-            fuzz = 1.0;
-        }
-
-        if (material_type == LAMBERTIAN) {
-            random_unit_vector();
-            scattered_x = normal_x + random_x;
-            scattered_y = normal_y + random_y;
-            scattered_z = normal_z + random_z;
-
-            if (fabs(scattered_x) < 1e-8
-             && fabs(scattered_y) < 1e-8
-             && fabs(scattered_z) < 1e-8) {
-                scattered_x = normal_x;
-                scattered_y = normal_y;
-                scattered_z = normal_z;
-            }
-        } else {
-            projection = direction_x * normal_x
-                       + direction_y * normal_y
-                       + direction_z * normal_z;
-            reflected_x = direction_x - 2.0 * projection * normal_x;
-            reflected_y = direction_y - 2.0 * projection * normal_y;
-            reflected_z = direction_z - 2.0 * projection * normal_z;
-            reflected_length = sqrt(reflected_x * reflected_x
-                                  + reflected_y * reflected_y
-                                  + reflected_z * reflected_z);
-            random_unit_vector();
-            scattered_x = reflected_x / reflected_length + fuzz * random_x;
-            scattered_y = reflected_y / reflected_length + fuzz * random_y;
-            scattered_z = reflected_z / reflected_length + fuzz * random_z;
-
-            if (scattered_x * normal_x
-              + scattered_y * normal_y
-              + scattered_z * normal_z <= 0.0) {
-                *red = 0;
-                *green = 0;
-                *blue = 0;
-                return;
+        hsfound = !hsbad;
+        if (hsfound) {
+            hitt = hsroot;
+            hstmp = hsroot * hsdx;
+            hitx = hsox + hstmp;
+            hstmp = hsroot * hsdy;
+            hity = hsoy + hstmp;
+            hstmp = hsroot * hsdz;
+            hitz = hsoz + hstmp;
+            hitmat = hsmat;
+            hsoutx = hitx - hscx;
+            hsoutx = hsoutx / hsr;
+            hsouty = hity - hscy;
+            hsouty = hsouty / hsr;
+            hsoutz = hitz - hscz;
+            hsoutz = hsoutz / hsr;
+            hstmp = hsdx * hsoutx;
+            hsfront = hstmp;
+            hstmp = hsdy * hsouty;
+            hsfront = hsfront + hstmp;
+            hstmp = hsdz * hsoutz;
+            hsfront = hsfront + hstmp;
+            hsfront = hsfront < 0;
+            if (hsfront) {
+                hitnx = hsoutx;
+                hitny = hsouty;
+                hitnz = hsoutz;
+            } else {
+                hitnx = -hsoutx;
+                hitny = -hsouty;
+                hitnz = -hsoutz;
             }
         }
-
-        throughput_r *= attenuation_r;
-        throughput_g *= attenuation_g;
-        throughput_b *= attenuation_b;
-        origin_x = point_x;
-        origin_y = point_y;
-        origin_z = point_z;
-        direction_x = scattered_x;
-        direction_y = scattered_y;
-        direction_z = scattered_z;
     }
-
-    *red = 0;
-    *green = 0;
-    *blue = 0;
 }
 
-double clamp(double value) {
-    if (value < 0.0)
-        return 0.0;
-    if (value > 0.999)
-        return 0.999;
-    return value;
+void hitworld(void) {
+    double hwclose;
+
+    hwclose = 32767;
+    hwfound = 0;
+
+    hsox = hwox;
+    hsoy = hwoy;
+    hsoz = hwoz;
+    hsdx = hwdx;
+    hsdy = hwdy;
+    hsdz = hwdz;
+    hscx = 0;
+    hscy = -100.5;
+    hscz = -1;
+    hsr = 100;
+    hsmat = 0;
+    hstmin = 0.001;
+    hstmax = hwclose;
+    hitsphere();
+    if (hsfound) {
+        hwclose = hitt;
+        hwfound = 1;
+    }
+
+    hscx = 0;
+    hscy = 0;
+    hscz = -1.2;
+    hsr = 0.5;
+    hsmat = 1;
+    hstmax = hwclose;
+    hitsphere();
+    if (hsfound) {
+        hwclose = hitt;
+        hwfound = 1;
+    }
+
+    hscx = -1;
+    hscy = 0;
+    hscz = -1;
+    hsr = 0.5;
+    hsmat = 2;
+    hstmax = hwclose;
+    hitsphere();
+    if (hsfound) {
+        hwclose = hitt;
+        hwfound = 1;
+    }
+
+    hscx = 1;
+    hscy = 0;
+    hscz = -1;
+    hsr = 0.5;
+    hsmat = 3;
+    hstmax = hwclose;
+    hitsphere();
+    if (hsfound) {
+        hwfound = 1;
+    }
+}
+
+void raycolor(void) {
+    // ray color 
+    // hit point and normal
+    double rcpx;
+    double rcpy;
+    double rcpz;
+    double rcnx;
+    double rcny;
+    double rcnz;
+    // scatter
+    double rcsx;
+    double rcsy;
+    double rcsz;
+    // attenuation
+    double rcar;
+    double rcag;
+    double rcab;
+    // reflection
+    double rcfuzz;
+    double rcrx;
+    double rcry;
+    double rcrz;
+    double rcrlen;
+    double rcproj;
+    double rcdlen;
+    double rcblend;
+    // throughput
+    double rctr;
+    double rctg;
+    double rctb;
+    
+    double rcmat;
+    double rctype;
+    double rcpath;
+    double rcactive;
+    double rcscatter;
+    double rctmp;
+    double rcsmallx;
+    double rcsmally;
+    double rcsmallz;
+    double rcsmall;
+    double rcmetal;
+    double rcnot;
+    double rceq;
+
+    rcoutr = 0;
+    rcoutg = 0;
+    rcoutb = 0;
+    rctr = 1;
+    rctg = 1;
+    rctb = 1;
+    rcpath = 0;
+    rcactive = rcpath < rcdepth;
+    while (rcactive) {
+        hwox = rcox;
+        hwoy = rcoy;
+        hwoz = rcoz;
+        hwdx = rcdx;
+        hwdy = rcdy;
+        hwdz = rcdz;
+        hitworld();
+        if (hwfound) {
+            rcpx = hitx;
+            rcpy = hity;
+            rcpz = hitz;
+            rcnx = hitnx;
+            rcny = hitny;
+            rcnz = hitnz;
+            rcmat = hitmat;
+            rcscatter = 1;
+            rcmetal = rcmat >= 2;
+            rcnot = !rcmetal;
+            if (rcnot) {
+                rctype = 0;
+                rceq = rcmat == 0;
+                if (rceq) {
+                    rcar = 0.8;
+                    rcag = 0.8;
+                    rcab = 0;
+                } else {
+                    rcar = 0.1;
+                    rcag = 0.2;
+                    rcab = 0.5;
+                }
+                rcfuzz = 0;
+            } else {
+                rctype = 1;
+                rceq = rcmat == 2;
+                if (rceq) {
+                    rcar = 0.8;
+                    rcag = 0.8;
+                    rcab = 0.8;
+                    rcfuzz = 0.3;
+                } else {
+                    rcar = 0.8;
+                    rcag = 0.6;
+                    rcab = 0.2;
+                    rcfuzz = 1;
+                }
+            }
+            rcnot = !rctype;
+            if (rcnot) {
+                randomunit();
+                rcsx = rcnx + randx;
+                rcsy = rcny + randy;
+                rcsz = rcnz + randz;
+                rctmp = fabs(rcsx);
+                rcsmallx = rctmp < 0.000015;
+                rctmp = fabs(rcsy);
+                rcsmally = rctmp < 0.000015;
+                rctmp = fabs(rcsz);
+                rcsmallz = rctmp < 0.000015;
+                rcsmall = rcsmallx && rcsmally;
+                rcsmall = rcsmall && rcsmallz;
+                if (rcsmall) {
+                    rcsx = rcnx;
+                    rcsy = rcny;
+                    rcsz = rcnz;
+                }
+            } else {
+                rctmp = rcdx * rcnx;
+                rcproj = rctmp;
+                rctmp = rcdy * rcny;
+                rcproj = rcproj + rctmp;
+                rctmp = rcdz * rcnz;
+                rcproj = rcproj + rctmp;
+                rctmp = rcproj * 2;
+                rcrx = rctmp * rcnx;
+                rcrx = rcdx - rcrx;
+                rcry = rctmp * rcny;
+                rcry = rcdy - rcry;
+                rcrz = rctmp * rcnz;
+                rcrz = rcdz - rcrz;
+                rctmp = rcrx * rcrx;
+                rcrlen = rctmp;
+                rctmp = rcry * rcry;
+                rcrlen = rcrlen + rctmp;
+                rctmp = rcrz * rcrz;
+                rcrlen = rcrlen + rctmp;
+                rcrlen = sqrt(rcrlen);
+                rcrx = rcrx / rcrlen;
+                rcry = rcry / rcrlen;
+                rcrz = rcrz / rcrlen;
+                randomunit();
+                rctmp = rcfuzz * randx;
+                rcsx = rcrx + rctmp;
+                rctmp = rcfuzz * randy;
+                rcsy = rcry + rctmp;
+                rctmp = rcfuzz * randz;
+                rcsz = rcrz + rctmp;
+                rctmp = rcsx * rcnx;
+                rcproj = rctmp;
+                rctmp = rcsy * rcny;
+                rcproj = rcproj + rctmp;
+                rctmp = rcsz * rcnz;
+                rcproj = rcproj + rctmp;
+                rcscatter = rcproj > 0;
+            }
+            if (rcscatter) {
+                rctr = rctr * rcar;
+                rctg = rctg * rcag;
+                rctb = rctb * rcab;
+                rcox = rcpx;
+                rcoy = rcpy;
+                rcoz = rcpz;
+                rcdx = rcsx;
+                rcdy = rcsy;
+                rcdz = rcsz;
+                rcpath = rcpath + 1;
+                rcactive = rcpath < rcdepth;
+            } else {
+                rcactive = 0;
+            }
+        } else {
+            rctmp = rcdx * rcdx;
+            rcdlen = rctmp;
+            rctmp = rcdy * rcdy;
+            rcdlen = rcdlen + rctmp;
+            rctmp = rcdz * rcdz;
+            rcdlen = rcdlen + rctmp;
+            rcdlen = sqrt(rcdlen);
+            rctmp = rcdy / rcdlen;
+            rctmp = rctmp + 1;
+            rcblend = rctmp * 0.5;
+            rctmp = rcblend * 0.5;
+            rctmp = 1 - rctmp;
+            rcoutr = rctr * rctmp;
+            rctmp = rcblend * 0.3;
+            rctmp = 1 - rctmp;
+            rcoutg = rctg * rctmp;
+            rcoutb = rctb;
+            rcactive = 0;
+        }
+    }
 }
 
 int main(void) {
-    double aspect_ratio = 16.0 / 9.0;
-    int image_width = 400;
-    int image_height = (int)(image_width / aspect_ratio);
-    int samples_per_pixel = 100;
-    int max_depth = 50;
-    double viewport_height = 2.0;
-    double viewport_width = viewport_height * image_width / image_height;
-    double pixel_step_x = viewport_width / image_width;
-    double pixel_step_y = -viewport_height / image_height;
-    double pixel00_x = -viewport_width / 2.0 + pixel_step_x / 2.0;
-    double pixel00_y = viewport_height / 2.0 + pixel_step_y / 2.0;
-    double pixel00_z = -1.0;
-    double target_x;
-    double target_y;
-    double target_z;
-    double sample_r;
-    double sample_g;
-    double sample_b;
-    double pixel_r;
-    double pixel_g;
-    double pixel_b;
-    int x;
-    int y;
-    int sample;
+    // camera
+    double maspect;
+    double mwidth;
+    double mheight;
+    double msamples;
+    double mdepth;
+    double mviewh;
+    double mvieww;
+    double mstepx;
+    double mstepy;
+    double mpixelx;
+    double mpixely;
+    double mpixelz;
+    // image
+    double mtargetx;
+    double mtargety;
+    double mtargetz;
+    double msampler;
+    double msampleg;
+    double msampleb;
+    double mpixelr;
+    double mpixelg;
+    double mpixelb;
+    double mx;
+    double my;
+    double msample;
+    double moffx;
+    double moffy;
+    double mtmp;
+    double mcond;
+    
+    // pixels
+    double moutw;
+    double mouth;
+    double moutr;
+    double moutg;
+    double moutb;
 
-    printf("P3\n%d %d\n255\n", image_width, image_height);
+    rdstate = 1;
+    maspect = 16;
+    maspect = maspect / 9;
+    mwidth = 400;
+    mheight = mwidth / maspect;
+    mheight = (int)mheight;
+    msamples = 100;
+    mdepth = 50;
+    mviewh = 2;
+    mvieww = mviewh * mwidth;
+    mvieww = mvieww / mheight;
+    mstepx = mvieww / mwidth;
+    mstepy = -mviewh;
+    mstepy = mstepy / mheight;
+    mpixelx = mvieww / 2;
+    mpixelx = -mpixelx;
+    mtmp = mstepx / 2;
+    mpixelx = mpixelx + mtmp;
+    mpixely = mviewh / 2;
+    mtmp = mstepy / 2;
+    mpixely = mpixely + mtmp;
+    mpixelz = -1;
+    moutw = (int)mwidth;
+    mouth = (int)mheight;
 
-    for (y = 0; y < image_height; y++) {
-        for (x = 0; x < image_width; x++) {
-            pixel_r = 0;
-            pixel_g = 0;
-            pixel_b = 0;
+    printf("P3\n");
+    printf("%d %d\n255\n", (int)moutw, (int)mouth);
 
-            for (sample = 0; sample < samples_per_pixel; sample++) {
-                target_x = pixel00_x
-                         + (x + random_double() - 0.5) * pixel_step_x;
-                target_y = pixel00_y
-                         + (y + random_double() - 0.5) * pixel_step_y;
-                target_z = pixel00_z;
-
-                ray_color(0, 0, 0, target_x, target_y, target_z,
-                          max_depth, &sample_r, &sample_g, &sample_b);
-
-                pixel_r += sample_r;
-                pixel_g += sample_g;
-                pixel_b += sample_b;
+    my = 0;
+    mcond = my < mheight;
+    while (mcond) {
+        mx = 0;
+        mcond = mx < mwidth;
+        while (mcond) {
+            mpixelr = 0;
+            mpixelg = 0;
+            mpixelb = 0;
+            msample = 0;
+            mcond = msample < msamples;
+            while (mcond) {
+                randomvalue();
+                moffx = rdout - 0.5;
+                randomvalue();
+                moffy = rdout - 0.5;
+                mtmp = mx + moffx;
+                mtmp = mtmp * mstepx;
+                mtargetx = mpixelx + mtmp;
+                mtmp = my + moffy;
+                mtmp = mtmp * mstepy;
+                mtargety = mpixely + mtmp;
+                mtargetz = mpixelz;
+                rcox = 0;
+                rcoy = 0;
+                rcoz = 0;
+                rcdx = mtargetx;
+                rcdy = mtargety;
+                rcdz = mtargetz;
+                rcdepth = mdepth;
+                raycolor();
+                msampler = rcoutr;
+                msampleg = rcoutg;
+                msampleb = rcoutb;
+                mpixelr = mpixelr + msampler;
+                mpixelg = mpixelg + msampleg;
+                mpixelb = mpixelb + msampleb;
+                msample = msample + 1;
+                mcond = msample < msamples;
             }
-
-            pixel_r = sqrt(pixel_r / samples_per_pixel);
-            pixel_g = sqrt(pixel_g / samples_per_pixel);
-            pixel_b = sqrt(pixel_b / samples_per_pixel);
-
-            printf("%d %d %d\n",
-                   (int)(256 * clamp(pixel_r)),
-                   (int)(256 * clamp(pixel_g)),
-                   (int)(256 * clamp(pixel_b)));
+            mpixelr = mpixelr / msamples;
+            mpixelr = sqrt(mpixelr);
+            mpixelg = mpixelg / msamples;
+            mpixelg = sqrt(mpixelg);
+            mpixelb = mpixelb / msamples;
+            mpixelb = sqrt(mpixelb);
+            mcond = mpixelr < 0;
+            if (mcond) {
+                mpixelr = 0;
+            }
+            mcond = mpixelr > 0.999;
+            if (mcond) {
+                mpixelr = 0.999;
+            }
+            mcond = mpixelg < 0;
+            if (mcond) {
+                mpixelg = 0;
+            }
+            mcond = mpixelg > 0.999;
+            if (mcond) {
+                mpixelg = 0.999;
+            }
+            mcond = mpixelb < 0;
+            if (mcond) {
+                mpixelb = 0;
+            }
+            mcond = mpixelb > 0.999;
+            if (mcond) {
+                mpixelb = 0.999;
+            }
+            moutr = mpixelr * 256;
+            moutg = mpixelg * 256;
+            moutb = mpixelb * 256;
+            moutr = (int)moutr;
+            moutg = (int)moutg;
+            moutb = (int)moutb;
+            printf("%d %d %d\n", (int)moutr, (int)moutg, (int)moutb);
+            mx = mx + 1;
+            mcond = mx < mwidth;
         }
+        my = my + 1;
+        mcond = my < mheight;
     }
-
     return 0;
 }
