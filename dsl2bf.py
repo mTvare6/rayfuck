@@ -217,6 +217,7 @@ def add4(nr, vx, vy, minus=False):
     if minus:
         negn(c, w[0], w[1], w[2], w[3])
     for i in range(4):
+        clear1(a[i])
         move1(b[i], a[i])
     addn(a, c, w[0], w[1], w[2], w[3])
     go(a[0])
@@ -230,6 +231,7 @@ def neg4(nr, vx):
     load(vx, b, t[5])
     negn(b, w[0], w[1], w[2], w[3])
     for i in range(4):
+        clear1(a[i])
         move1(b[i], a[i])
     go(a[0])
 
@@ -596,7 +598,147 @@ def copy4(nr, nx):
         copy1(b[i], a[i], mem[nr]["tmp"][0])
 
 
+def int4(nr, nx):
+    a = cells(mem[nr]["at"])
+    t = mem[nr]["tmp"]
+    b = cells(t[0])
+    w = cells(t[2]) + cells(t[3])
+    load(nx, b, t[5])
+    extract_sign(b[3], t[1], w)
+    copy1(t[1], t[1] + 1, t[1] + 2)
+    go(t[1])
+    out.append("[-")
+    negn(b, w[0], w[1], w[2], w[3])
+    go(t[1])
+    out.append("]")
+    clear1(b[0])
+    clear1(b[1])
+    go(t[1] + 1)
+    out.append("[-")
+    negn(b, w[0], w[1], w[2], w[3])
+    go(t[1] + 1)
+    out.append("]")
+    for i in range(4):
+        clear1(a[i])
+        move1(b[i], a[i])
+
+
+def subdigit(an, v, ad, ac, al, ae, ab, aw, az):
+    def again():
+        setn(ac, [v, 0])
+        lessn(an, ac, al, ae, ab, aw)
+        bool_flip(al, az[0])
+
+    again()
+    go(al)
+    out.append("[")
+    negn(ac, az[0], az[1], az[2], az[3])
+    addn(an, ac, az[0], az[1], az[2], az[3])
+    go(ad)
+    out.append("+")
+    again()
+    go(al)
+    out.append("]")
+
+
+def digit1(ad, ac, at):
+    copy1(ad, ac, at)
+    go(ac)
+    out.append("+" * 48 + ".")
+
+
+def printnum(nx):
+    t = mem[nx]["tmp"]
+    an = cells(t[0], 2)
+    ah, at = t[0] + 2, t[0] + 3
+    ac = cells(t[1], 2)
+    al, ae = t[1] + 2, t[1] + 3
+    ab = cells(t[2], 2)
+    aw = cells(t[3]) + cells(t[4])
+    az = cells(t[5])
+    copy1(mem[nx]["at"] + 2, an[0], az[0])
+    copy1(mem[nx]["at"] + 3, an[1], az[0])
+    clear1(ah)
+    clear1(at)
+    subdigit(an, 100, ah, ac, al, ae, ab, aw, az)
+    subdigit(an, 10, at, ac, al, ae, ab, aw, az)
+    clear1(ab[0])
+    copy1(ah, ac[0], ac[1])
+    truthiness([ac[0]], al)
+    go(al)
+    out.append("[-")
+    digit1(ah, ac[0], ac[1])
+    set1(ab[0], 1)
+    go(al)
+    out.append("]")
+    copy1(ab[0], ac[0], ac[1])
+    copy1(at, ac[1], az[0])
+    truthiness(ac, al)
+    go(al)
+    out.append("[-")
+    digit1(at, ac[0], ac[1])
+    go(al)
+    out.append("]")
+    digit1(an[0], ac[0], ac[1])
+
+
+def text1(s):
+    for c in s:
+        set1(printcell, ord(c))
+        go(printcell)
+        out.append(".")
+
+
+funcs = {}
+stack = []
+
 for w in lines:
+    if w[0] == "var":
+        continue
+    if w[0] == "func":
+        funcs[w[1]] = []
+        stack = [funcs[w[1]]]
+    elif w[0] in ["if", "while"]:
+        node = [w[0], w[1], [], None]
+        stack[-1].append(node)
+        stack.append(node[2])
+    elif w[0] == "else":
+        stack.pop()
+        node = stack[-1][-1]
+        node[3] = []
+        stack.append(node[3])
+    elif w[0] == "end":
+        stack.pop()
+    else:
+        stack[-1].append(w)
+
+
+def depth_of(body, depth=0):
+    high = depth
+    for w in body:
+        if w[0] == "call":
+            high = max(high, depth_of(funcs[w[1]], depth))
+        if w[0] in ["if", "while"]:
+            high = max(high, depth_of(w[2], depth + 1))
+            if w[3] is not None:
+                high = max(high, depth_of(w[3], depth + 1))
+    return high
+
+
+flow = p
+p += depth_of(funcs["main"]) * 7
+printcell = p
+p += 1
+
+
+def condition(nx, depth):
+    a = flow + depth * 7
+    copyn(cells(mem[nx]["at"]), cells(a), 4, a + 4)
+    truthiness(cells(a), a + 5)
+    return a + 5, a + 6
+
+
+def emit(w, depth):
     if w[0] == "at":
         go(mem[w[1]]["at"] + (int(w[2]) if len(w) > 2 else 0))
     if w[0] == "zero":
@@ -627,6 +769,51 @@ for w in lines:
         abs4(w[1], w[2])
     if w[0] == "sqrt":
         sqrt4(w[1], w[2])
+    if w[0] == "int":
+        int4(w[1], w[2])
+    if w[0] == "text":
+        text1(" ".join(w[1:]) + "\n")
+    if w[0] in ["print2", "print3"]:
+        for i, n in enumerate(w[1:]):
+            if i:
+                text1(" ")
+            printnum(n)
+        text1("\n")
+    if w[0] == "call":
+        emit_body(funcs[w[1]], depth)
+    if w[0] == "if":
+        af, ae = condition(w[1], depth)
+        if w[3] is not None:
+            set1(ae, 1)
+        go(af)
+        out.append("[-")
+        if w[3] is not None:
+            clear1(ae)
+        emit_body(w[2], depth + 1)
+        go(af)
+        out.append("]")
+        if w[3] is not None:
+            go(ae)
+            out.append("[-")
+            emit_body(w[3], depth + 1)
+            go(ae)
+            out.append("]")
+    if w[0] == "while":
+        af, ae = condition(w[1], depth)
+        go(af)
+        out.append("[")
+        emit_body(w[2], depth + 1)
+        condition(w[1], depth)
+        go(af)
+        out.append("]")
+
+
+def emit_body(body, depth):
+    for w in body:
+        emit(w, depth)
+
+
+emit_body(funcs["main"], 0)
 
 open("ray.bf", "w").write("".join(out))
 
