@@ -1,4 +1,4 @@
-abs
+#abs
 #add
 #and
 call
@@ -21,7 +21,7 @@ int
 print2
 print3
 #set
-sqrt
+#sqrt
 #sub
 text
 #var

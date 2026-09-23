@@ -295,6 +295,94 @@ def compare1(ax, ay, al, ag, aw):
     truthiness([ay], al)
 
 
+
+
+
+
+def shift1(ax, ac, aw):
+    aq, at, az, af, aa, ab = aw
+    clear1(ac)
+    for x in ax:
+        copy1(x, aq, at)
+        carry = addn([x], [aq], az, af, aa, ab)
+        go(ac)
+        out.append("[-")
+        go(x)
+        out.append("+")
+        go(ac)
+        out.append("]")
+        move1(carry, ac)
+
+
+def lessn(ax, ay, al, ae, ab, aw):
+    abl, abg = ab
+    axc, ayc, at, ar = aw[:4]
+    clear1(al)
+    set1(ae, 1)
+    for i in range(len(ax) - 1, -1, -1):
+        copy1(ae, ar, at)
+        clear1(ae)
+        go(ar)
+        out.append("[-")
+        copy1(ax[i], axc, at)
+        copy1(ay[i], ayc, at)
+        compare1(axc, ayc, abl, abg, aw[4:])
+        set1(ae, 1)
+        go(abl)
+        out.append("[-")
+        set1(al, 1)
+        clear1(ae)
+        go(abl)
+        out.append("]")
+        go(abg)
+        out.append("[-")
+        clear1(ae)
+        go(abg)
+        out.append("]")
+        go(ar)
+        out.append("]")
+
+
+def sqrt4(nr, vx):
+    a = cells(mem[nr]["at"])
+    t = mem[nr]["tmp"]
+    b = cells(t[0])
+    rem = cells(t[1])
+    root = cells(t[2])
+    trial = cells(t[3])
+    w = cells(t[4]) + cells(t[5])
+    load(vx, b, w[7])
+    for x in rem + root + trial:
+        clear1(x)
+    for pair in range(24):
+        for bit in range(2):
+            shift1(rem, a[1], w[:6])
+            if pair < 16:
+                shift1(b, a[0], w[:6])
+                move1(a[0], rem[0])
+        shift1(root, a[0], w[:6])
+        copyn(root, trial, 4, w[0])
+        shift1(trial, a[0], w[:6])
+        go(trial[0])
+        out.append("+")
+        lessn(rem, trial, a[0], a[3], [a[1], a[2]], w)
+        bool_flip(a[0], w[0])
+        go(a[0])
+        out.append("[-")
+        negn(trial, w[0], w[1], w[2], w[3])
+        addn(rem, trial, w[0], w[1], w[2], w[3])
+        go(root[0])
+        out.append("+")
+        go(a[0])
+        out.append("]")
+    for i in range(4):
+        clear1(a[i])
+        move1(root[i], a[i])
+    go(a[0])
+
+
+
+
 def compare4(nr, vx, vy, op):
     a = cells(mem[nr]["at"])
     t = mem[nr]["tmp"]
@@ -537,6 +625,8 @@ for w in lines:
         compare4(w[1], w[2], w[3], w[0])
     if w[0] == "abs":
         abs4(w[1], w[2])
+    if w[0] == "sqrt":
+        sqrt4(w[1], w[2])
 
 open("ray.bf", "w").write("".join(out))
 
