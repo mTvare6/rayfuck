@@ -268,6 +268,98 @@ def bool4(nr, vx, vy=None, both=False):
     go(a[0])
 
 
+def compare1(ax, ay, al, ag, aw):
+    aq, at, af, ai = aw
+    clear1(al)
+    clear1(ag)
+    go(ax)
+    out.append("[-")
+    copy1(ay, aq, at)
+    truthiness([aq], af)
+    set1(ai, 1)
+    go(af)
+    out.append("[-")
+    go(ay)
+    out.append("-")
+    clear1(ai)
+    go(af)
+    out.append("]")
+    go(ai)
+    out.append("[-")
+    set1(ag, 1)
+    clear1(ax)
+    go(ai)
+    out.append("]")
+    go(ax)
+    out.append("]")
+    truthiness([ay], al)
+
+
+def compare4(nr, vx, vy, op):
+    a = cells(mem[nr]["at"])
+    t = mem[nr]["tmp"]
+    b = cells(t[0])
+    c = cells(t[1])
+    al, ag, more, run = cells(t[2])
+    w = cells(t[3])
+    addw = cells(t[4])
+    load(vx, b, t[5] + 3)
+    load(vy, c, t[5] + 3)
+    set1(t[5], 128)
+    addn([b[3]], [t[5]], *addw)
+    set1(t[5], 128)
+    addn([c[3]], [t[5]], *addw)
+    for x in a:
+        clear1(x)
+    set1(more, 1)
+    for i in range(3, -1, -1):
+        copy1(more, run, t[5] + 1)
+        clear1(more)
+        go(run)
+        out.append("[-")
+        compare1(b[i], c[i], al, ag, w)
+        set1(more, 1)
+        go(al)
+        out.append("[-")
+        if op in ("lt", "le"):
+            set1(a[0], 1)
+        clear1(more)
+        go(al)
+        out.append("]")
+        go(ag)
+        out.append("[-")
+        if op in ("gt", "ge"):
+            set1(a[0], 1)
+        clear1(more)
+        go(ag)
+        out.append("]")
+        go(run)
+        out.append("]")
+    if op in ("eq", "le", "ge"):
+        move1(more, a[0])
+    else:
+        clear1(more)
+    go(a[0])
+
+
+def abs4(nr, vx):
+    a = cells(mem[nr]["at"])
+    t = mem[nr]["tmp"]
+    b = cells(t[0])
+    w = cells(t[2]) + cells(t[3])
+    load(vx, b, t[5])
+    extract_sign(b[3], t[1], w)
+    go(t[1])
+    out.append("[-")
+    negn(b, w[2], w[3], w[4], w[5])
+    go(t[1])
+    out.append("]")
+    for i in range(4):
+        clear1(a[i])
+        move1(b[i], a[i])
+    go(a[0])
+
+
 def mul4(nr, vx, vy):
     a = cells(mem[nr]["at"])
     t = mem[nr]["tmp"]
@@ -441,6 +533,10 @@ for w in lines:
         mul4(w[1], w[2], w[3])
     if w[0] == "div":
         div4(w[1], w[2], w[3])
+    if w[0] in ["le", "lt", "ge", "gt", "eq"]:
+        compare4(w[1], w[2], w[3], w[0])
+    if w[0] == "abs":
+        abs4(w[1], w[2])
 
 open("ray.bf", "w").write("".join(out))
 
