@@ -47,6 +47,8 @@ for line in s.splitlines():
     if line.startswith("printf"):
         names = re.findall(r"\(int\)(\w+)", line)
         out.append(("print2" if len(names) == 2 else "print3") + " " + " ".join(names))
+        if "\\n255\\n" in line:
+            out.append("text 255")
         continue
     if line == "return 0;":
         continue
