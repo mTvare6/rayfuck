@@ -6,4 +6,4 @@ A ray tracer written in Brainfuck, made by compiling Ray Tracing in One Weekend'
 ![estimated render](./a.png)
 
 
-For the blog on it's implementation details, [read here](http://epestr.com/blog/writing-a-ray-tracer-in-python). 
+The accompanying blog can be found [here](http://epestr.com/blog/writing-a-ray-tracer-in-brainfuck). 
