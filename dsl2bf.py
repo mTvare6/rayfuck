@@ -817,9 +817,4 @@ emit_body(funcs["main"], 0)
 
 open("ray.bf", "w").write("".join(out))
 
-with open("ray.map", "w") as f:
-    print("cells", p, file=f)
-    for n in mem:
-        print(n, mem[n], file=f)
-
 print(len(mem), "vars", p, "cells", len("".join(out)), "characters")
