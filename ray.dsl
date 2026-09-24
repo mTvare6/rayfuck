@@ -488,6 +488,7 @@ int moutw mwidth
 int mouth mheight
 text P3
 print2 moutw mouth
+text 255
 set my 0
 lt mcond my mheight
 while mcond
