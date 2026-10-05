@@ -21,6 +21,10 @@ value = r"(?:\w+|-?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)"
 
 for line in s.splitlines():
     line = line.strip()
+    directive = re.fullmatch(r"//\s*brainjoin\s+(.+)", line)
+    if directive:
+        out.append(directive.group(1))
+        continue
     fn = re.fullmatch(r"(?:void|int)\s+(\w+)\(void\)\s*\{", line)
     if fn:
         out.append("func " + fn.group(1))

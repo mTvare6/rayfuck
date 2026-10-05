@@ -1,3 +1,5 @@
+import sys
+
 lines = [x.split() for x in open("ray.dsl")]
 mem = {}
 p = 0
@@ -689,6 +691,24 @@ def text1(s):
         out.append(".")
 
 
+def fork4(nx, stride):
+    identity = mem[nx]["at"]
+    stride = int(stride)
+    if stride <= p:
+        raise ValueError("fork stride must exceed the local workspace")
+    clear1(identity)
+    clear1(forkcell)
+    set1(forkcell + 1, 1)
+    go(forkcell)
+    out.append("([-")
+    delta = identity + 2 + stride - (forkcell + 1)
+    out.append((">" if delta > 0 else "<") * abs(delta))
+    out.append("+")
+    delta = forkcell - (identity + 2)
+    out.append((">" if delta > 0 else "<") * abs(delta))
+    out.append("]")
+
+
 funcs = {}
 stack = []
 
@@ -729,6 +749,8 @@ flow = p
 p += depth_of(funcs["main"]) * 7
 printcell = p
 p += 1
+forkcell = p
+p += 2
 
 
 def condition(nx, depth):
@@ -773,6 +795,23 @@ def emit(w, depth):
         int4(w[1], w[2])
     if w[0] == "text":
         text1(" ".join(w[1:]) + "\n")
+    if w[0] == "fork":
+        fork4(w[1], w[2])
+    if w[0] == "waitzero":
+        go(mem[w[1]]["at"] + 2 + int(w[2]))
+        out.append("[]")
+    if w[0] == "clearat":
+        clear1(mem[w[1]]["at"] + 2 + int(w[2]))
+    if w[0] == "moveintto":
+        src = mem[w[1]]["at"] + 2
+        dst = mem[w[2]]["at"] + 2 + int(w[3])
+        clear1(dst)
+        move1(src, dst)
+    if w[0] == "setat":
+        set1(mem[w[1]]["at"] + 2 + int(w[2]), int(w[3]))
+    if w[0] == "join":
+        go(forkcell)
+        out.append(")#")
     if w[0] in ["print2", "print3"]:
         for i, n in enumerate(w[1:]):
             if i:
@@ -815,6 +854,7 @@ def emit_body(body, depth):
 
 emit_body(funcs["main"], 0)
 
-open("ray.bf", "w").write("".join(out))
+output = sys.argv[1] if len(sys.argv) > 1 else "rayjoin.bf"
+open(output, "w").write("".join(out))
 
 print(len(mem), "vars", p, "cells", len("".join(out)), "characters")
