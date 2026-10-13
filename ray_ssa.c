@@ -489,6 +489,7 @@ int main(void) {
   double mpixelb;
   double mx;
   double my;
+  double mwork;
   double msample;
   double moffx;
   double moffy;
@@ -502,28 +503,19 @@ int main(void) {
   double moutg;
   double moutb;
   double mthread;
-  double mgo;
-  double mdone;
-  double mack;
-  double mchildr;
-  double mchildg;
-  double mchildb;
 
-  mgo = 1;
-  mdone = 1;
-  mack = 1;
-  // brainjoin fork mthread 8192
-  rdstate = 1;
-  mcond = mthread;
-  if (mcond) {
-    rdstate = 2;
-  }
+  moutw = 400;
+  mouth = 225;
+  printf("P3\n");
+  printf("%d %d\n255\n", (int)moutw, (int)mouth);
+  // brainjoin fork mthread 8192 16
+  rdstate = mthread + 1;
   maspect = 16;
   maspect = maspect / 9;
-  mwidth = 200;
+  mwidth = 400;
   mheight = mwidth / maspect;
   mheight = (int)mheight;
-  msamples = 1;
+  msamples = 100;
   mdepth = 50;
   mviewh = 2;
   mvieww = mviewh * mwidth;
@@ -542,18 +534,11 @@ int main(void) {
   moutw = (int)mwidth;
   mouth = (int)mheight;
 
-  mcond = !mthread;
-  if (mcond) {
-    printf("P3\n");
-    printf("%d %d\n255\n", (int)moutw, (int)mouth);
-  }
-
   my = 0;
-  mcond = my < mheight;
+  mx = mthread;
+  mwork = 0;
+  mcond = mwork < 5625;
   while (mcond) {
-    mx = mthread;
-    mcond = mx < mwidth;
-    while (mcond) {
       mpixelr = 0;
       mpixelg = 0;
       mpixelb = 0;
@@ -624,29 +609,15 @@ int main(void) {
       moutr = (int)moutr;
       moutg = (int)moutg;
       moutb = (int)moutb;
-      mcond = !mthread;
+      printf("%d %d %d\n", (int)moutr, (int)moutg, (int)moutb);
+      mx = mx + 16;
+      mcond = mx >= mwidth;
       if (mcond) {
-        mgo = 0;
-        // brainjoin waitzero mdone 0
-        mgo = 1;
-        printf("%d %d %d\n", (int)moutr, (int)moutg, (int)moutb);
-        printf("%d %d %d\n", (int)mchildr, (int)mchildg, (int)mchildb);
-        mdone = 1;
-        // brainjoin clearat mack 0
-      } else {
-        // brainjoin waitzero mgo -8192
-        // brainjoin moveintto moutr mchildr -8192
-        // brainjoin moveintto moutg mchildg -8192
-        // brainjoin moveintto moutb mchildb -8192
-        // brainjoin clearat mdone -8192
-        // brainjoin waitzero mack -8192
-        // brainjoin setat mack -8192 1
+        mx = mx - mwidth;
+        my = my + 1;
       }
-      mx = mx + 2;
-      mcond = mx < mwidth;
-    }
-    my = my + 1;
-    mcond = my < mheight;
+    mwork = mwork + 1;
+    mcond = mwork < 5625;
   }
   // brainjoin join
   return 0;

@@ -691,22 +691,39 @@ def text1(s):
         out.append(".")
 
 
-def fork4(nx, stride):
+fork_levels = 0
+
+
+def fork4(nx, stride, workers=2):
+    global fork_levels
     identity = mem[nx]["at"]
     stride = int(stride)
+    workers = int(workers)
     if stride <= p:
         raise ValueError("fork stride must exceed the local workspace")
+    if workers < 2:
+        raise ValueError("fork needs at least two workers")
+    fork_levels = (workers - 1).bit_length()
     clear1(identity)
-    clear1(forkcell)
-    set1(forkcell + 1, 1)
-    go(forkcell)
-    out.append("([-")
-    delta = identity + 2 + stride - (forkcell + 1)
-    out.append((">" if delta > 0 else "<") * abs(delta))
-    out.append("+")
-    delta = forkcell - (identity + 2)
-    out.append((">" if delta > 0 else "<") * abs(delta))
-    out.append("]")
+    count = 1
+    for level in range(fork_levels):
+        offset = count * stride
+        rank_increment = 1 << (fork_levels - level - 1)
+        child_identity = identity + offset
+        clear1(child_identity)
+        clear1(child_identity + 1)
+        copy1(identity + 2, child_identity + 2, child_identity + 4)
+        clear1(child_identity + 3)
+        go(child_identity + 2)
+        out.append("+" * rank_increment)
+        forkcell = forkcells[level]
+        clear1(forkcell)
+        set1(forkcell + 1, 1)
+        go(forkcell)
+        out.append("([-")
+        out.append(">" * (offset - 1))
+        out.append("]")
+        count *= 2
 
 
 funcs = {}
@@ -749,8 +766,8 @@ flow = p
 p += depth_of(funcs["main"]) * 7
 printcell = p
 p += 1
-forkcell = p
-p += 2
+forkcells = list(range(p, p + 64, 2))
+p += 64
 
 
 def condition(nx, depth):
@@ -796,7 +813,7 @@ def emit(w, depth):
     if w[0] == "text":
         text1(" ".join(w[1:]) + "\n")
     if w[0] == "fork":
-        fork4(w[1], w[2])
+        fork4(w[1], w[2], w[3] if len(w) > 3 else 2)
     if w[0] == "waitzero":
         go(mem[w[1]]["at"] + 2 + int(w[2]))
         out.append("[]")
@@ -810,8 +827,9 @@ def emit(w, depth):
     if w[0] == "setat":
         set1(mem[w[1]]["at"] + 2 + int(w[2]), int(w[3]))
     if w[0] == "join":
-        go(forkcell)
-        out.append(")#")
+        for forkcell in reversed(forkcells[:fork_levels]):
+            go(forkcell)
+            out.append(")#")
     if w[0] in ["print2", "print3"]:
         for i, n in enumerate(w[1:]):
             if i:

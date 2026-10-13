@@ -130,6 +130,7 @@ var mpixelg
 var mpixelb
 var mx
 var my
+var mwork
 var msample
 var moffx
 var moffy
@@ -141,12 +142,6 @@ var moutr
 var moutg
 var moutb
 var mthread
-var mgo
-var mdone
-var mack
-var mchildr
-var mchildg
-var mchildb
 func randomvalue
 mul rdstate rdstate 5
 add rdstate rdstate 1
@@ -469,21 +464,19 @@ end
 end
 end
 func main
-set mgo 1
-set mdone 1
-set mack 1
-fork mthread 8192
-set rdstate 1
-copy mcond mthread
-if mcond
-set rdstate 2
-end
+set moutw 400
+set mouth 225
+text P3
+print2 moutw mouth
+text 255
+fork mthread 8192 16
+add rdstate mthread 1
 set maspect 16
 div maspect maspect 9
-set mwidth 200
+set mwidth 400
 div mheight mwidth maspect
 int mheight mheight
-set msamples 1
+set msamples 100
 set mdepth 50
 set mviewh 2
 mul mvieww mviewh mwidth
@@ -501,17 +494,10 @@ add mpixely mpixely mtmp
 set mpixelz -1
 int moutw mwidth
 int mouth mheight
-not mcond mthread
-if mcond
-text P3
-print2 moutw mouth
-text 255
-end
 set my 0
-lt mcond my mheight
-while mcond
 copy mx mthread
-lt mcond mx mwidth
+set mwork 0
+lt mcond mwork 5625
 while mcond
 set mpixelr 0
 set mpixelg 0
@@ -583,29 +569,15 @@ mul moutb mpixelb 256
 int moutr moutr
 int moutg moutg
 int moutb moutb
-not mcond mthread
-if mcond
-set mgo 0
-waitzero mdone 0
-set mgo 1
 print3 moutr moutg moutb
-print3 mchildr mchildg mchildb
-set mdone 1
-clearat mack 0
-else
-waitzero mgo -8192
-moveintto moutr mchildr -8192
-moveintto moutg mchildg -8192
-moveintto moutb mchildb -8192
-clearat mdone -8192
-waitzero mack -8192
-setat mack -8192 1
-end
-add mx mx 2
-lt mcond mx mwidth
-end
+add mx mx 16
+ge mcond mx mwidth
+if mcond
+sub mx mx mwidth
 add my my 1
-lt mcond my mheight
+end
+add mwork mwork 1
+lt mcond mwork 5625
 end
 join
 end
